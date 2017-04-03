@@ -1,0 +1,186 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `brfss2013`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+The BRFSS data that is compromised of responses of almost 500,000 people across each of 50 states and US territories is generalizable because of the sample size and the way in which individuals were selected (randomly). However because this was an observational study, the results can not be used to determine causation. 
+
+* * *
+
+## Part 2: Research questions
+
+**Research quesion 1:** How does income level affect time spent sleeping? Specifically, are people who make more money more likely to sleep less than those who make less money? 
+
+* **Associated Variables:** How Much Time Do You Sleep and Income Level
+* **Interest:** I believe there may be some misconceptions surrounding how much people make and how much sleep they get on a regular basis. I would like to see if people who earn more actually sleep less.
+
+**Research quesion 2:** Do people who identify as black play more basketball on average than people of other races.
+
+* **Associated Variables:** Preferred Race, primary physical activity, times per week spent taking part in a particular activity, and time Spent performing primary physical activity. 
+* **Interest:** The majority of NBA players would identify as black, but I wonder if black people as a whole are playing more basketball than others.
+
+**Research quesion 3:** How does physical and mental health look among income level and race?
+
+* **Associated Variables:** Race, Income Level, Number of Days Mental Health Not Good
+* **Interest:** The Notorious B.I.G once said, "Mo Money Mo Problems." While I don't intend to make light of the mental health challenges faced by tens of thousands of Americans, I do believe that Biggie's statement is true and would like to see how this relates to mental health in the BRFSS data set.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+NOTE: Insert code chunks as needed by clicking on the "Insert a new code chunk" 
+button (green button with orange arrow) above. Make sure that your code is visible
+in the project you submit. Delete this note when before you submit your work.
+
+**Research quesion 1:**
+Remember we are interested in understanding how the amount of sleep differs between income levels. Therefore, the particular columns we are interested in investigating are income2 and sleptim1.
+
+From the cookbook, we see that we have over 490k responses, but we need to group those responses by income level and filter out that are NA for income2 and sleptim1. 
+
+```{r}
+brfss2013 %>%
+  filter(!is.na(income2), !is.na(sleptim1)) %>%
+  group_by(income2) %>%
+  summarise(avg_sleptime_minutes = mean(sleptim1) * 60) %>%
+  arrange(desc(avg_sleptime_minutes))
+```
+
+I've put the mean sleep time in minutes in order to see the difference more clearly. From a first glance there looks to be subtle differences between the amount of time slept by those with lower incomes and those who make more money. It seems as people who make between 25k and 34,999 get the most sleep. However, after the bracket 'Less than $15000' the mean time slept is only separted by approximatley two minutes. But we know that the mean can be skewed by outliers so let's use a boxplot to take a closer look.
+
+```{r}
+brfss2013 %>%
+  filter(!is.na(income2) & !is.na(sleptim1)) %>%
+  ggplot(mapping=aes(x=income2, y=sleptim1)) + geom_boxplot() + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + xlab("Income Level") + ylab("Time Slept (in hours)") + ggtitle("Time Slept in the Past 24 hours Across Income Levels")
+```
+ The box plot shows that the medians (7 hours) are equal regardless of the income level and that there are a good amount of outliers in each of the income brackets. This should have been expected because approximately 79% of participants said they slept 6, 7 or 8 hours in a 24 hour period.Thus our best way of determining the answer to the question is by relying on the mean.
+
+**Research quesion 2:**
+We want to see what race is playing basketball the most. The way we are going to answer this question is by looking at people whose primary source of physical activity comes from basketball. Therefore, we need to look at the following variables: preferred race, exercise in past 30 days, type of physical activity, other type of physical activity, and how often they spent doing the activity which in this case would be basketball.
+
+Let's start by seeing just how many people have their primary or secondary physical activity as basketball.
+```{r}
+brfss2013 %>%
+  filter(!is.na(X_prace1), exerany2=='Yes', exract11=='Basketball') %>%
+  group_by(X_prace1) %>%
+  summarise(count=n())
+```
+We need to be able to find the sum of the time spent playing basketball whether it is a person's primary or secondar physical activity. I believe the best way to do that is to multiply the exhermm1 by exeroft1. Let's start by making a column denoting if the times per week is available.
+```{r}
+brfss2013<- brfss2013 %>%
+  # seeing if they reported number of times they perform a physical activity in a week
+  mutate(exerhmm1_week_av = ifelse(exeroft1 >= 101 & exeroft1 <= 199, 'yes', 'no'))
+```
+
+One of the issues is tht exhermm1 is not in a format were we can easily multiply by exeroft1. Let's seperate the hours and minutes.
+```{r}
+brfss2013<- brfss2013 %>%
+  # seperating minutes and hours
+  mutate(exermm1 = exerhmm1 %% 100,
+         exerh1 = floor(exerhmm1/100))
+```
+
+
+
+Now, we can do our multiplication and then see what the time spent playing basketball is.
+```{r}
+brfss2013<- brfss2013 %>%
+  # time spent performing primary physical activity
+  mutate(exerhmm1_week = ifelse(exerhmm1_week_av == 'yes', ((exeroft1-100) * (exermm1 + exerh1*60)), NA))
+
+```
+
+With the new columns, we can now report on the summary statistics.
+
+```{r}
+
+#summary statistics of time spent playing basketball
+brfss2013 %>%
+  filter(!is.na(X_prace1), exerhmm1_week != 'NA', exerany2=='Yes', exract11=='Basketball', exerhmm1_week_av=='yes') %>%
+  group_by(X_prace1) %>%
+  summarise(avg_time_spent_basketball = sum(exerhmm1_week)/n(), median = median(exerhmm1_week), count=n()) %>%
+  arrange(desc(avg_time_spent_basketball))
+```
+
+It looks like we have a very small number of people who identified as multiracial and 'no preferred race' who had a primary physical activity of basketball. Let's take a look when we don't include them.
+
+```{r}
+brfss2013 %>%
+  filter(!is.na(X_prace1), exerhmm1_week != 'NA', exerany2=='Yes', exract11=='Basketball', exerhmm1_week_av=='yes', X_prace1 != 'Multiracial but preferred race not answered', X_prace1 != 'No preferred race') %>%
+  group_by(X_prace1) %>%
+  summarise(avg_time_spent_basketball = sum(exerhmm1_week)/n(), median = median(exerhmm1_week), count=n()) %>%
+  arrange(desc(avg_time_spent_basketball))
+```
+If we want to use the mean, people who identify as Native Hawaiian or other Pacific Islander spend the most time playing basketball. But since the average is susceptible to being moved by outliers and the amount of people who had a primary physical activity as basketball and identified as Native Hawaiian or other Pacific Islander is so small I believe the median is the better measurement. Thus it would seem that people who identify as 'Native Hawaiian or other Pacific Islander' or 'Black or African American' spend the most time playing basketball.
+
+```{r}
+
+brfss2013 %>%
+  filter(!is.na(X_prace1), exerhmm1_week != 'NA', exerany2=='Yes', exract11=='Basketball', exerhmm1_week_av=='yes', X_prace1 != 'Multiracial but preferred race not answered', X_prace1 != 'No preferred race') %>%
+  ggplot(mapping=aes(x=X_prace1, y=exerhmm1_week)) + geom_boxplot() + theme( axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + xlab("Preferred Race") + ylab("Time Playing Basketball (in Minutes)") + ggtitle("Time Spent Playing Basketball Across Races")
+```
+
+The boxplot above shows that there are a lot of extreme values when it comes to the group of people who identify as Black or African American. As we expected this skews the mean. Neverthless, the plot above shows that the median for time spent playing basketball is equal for Blacks and Pacific Islanders.
+
+
+**Research quesion 3:**
+We want to see how the poor physical or mental health differs among people of various races and incomes. So the variables we will investigate are preferred race (X_prace1), income (income2), and poor physical or mental health.
+
+```{r}
+brfss2013 %>%
+  filter(!is.na(X_prace1),!is.na(poorhlth)) %>%
+  group_by(X_prace1) %>%
+  summarise(avg_days_poor_health=mean(poorhlth), med_days_poor_health=median(poorhlth) , none_days=sum(poorhlth==0)/n(), count=n())
+
+```
+When we look at the median number of days that people have poor physical or mental health across each of the different races it is 0 with the exception of people who identify as 'American Indian or Alaskan Native'. That's to be expected with almost half of the responses for each race being 0 or none. When we look at the mean, people who identify as 'American Indian or Alaskan Native' have more days of poor physical or mental health as well. It also looks like people who identify as Asian are less likely to experience any days of poor mental or physical health.  
+
+```{r}
+brfss2013 %>%
+  filter(!is.na(income2),!is.na(poorhlth)) %>%
+  group_by(income2) %>%
+  summarise(avg_days_poor_health=mean(poorhlth), med_days_poor_health=median(poorhlth) , none_days=sum(poorhlth==0)/n(), count=n())
+
+```
+
+When we look at physical and mental health across income brackets that changes. It looks like people with less money experience more days of poor mental or physical health. In addition, the more money an individual makes the more likely the are to experience no days of poor physical or mental health. 
+
+```{r}
+# putting summary stats in a new data frame
+health_summary<-brfss2013 %>%
+  filter(!is.na(X_prace1), !is.na(income2),!is.na(poorhlth)) %>%
+  group_by(X_prace1, income2) %>%
+  summarise(avg_days_poor_health=mean(poorhlth), med_days_poor_health=median(poorhlth) , none_days=sum(poorhlth==0)/n(), count=n())
+
+# plot
+ggplot(data = health_summary, aes(x=X_prace1, y=none_days)) + geom_point(aes(colour=income2)) + theme( axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + xlab("Preferred Race") + ylab("% of People 0 Poor Health Days") + ggtitle("% of People without Poor Health Days by Race and Income")
+```
+
+If we look at the percentage of people who experienced zero days of poor mental or physical health, people who identfy as 'Multiracial but preferred race not answered' and make between $50k and $75k are more likely to have zero days of poor mental or physical health. However, there is one individual that had 30 days of poor physical or mental health. Like it was revealed earlier income and days of poor mental or physical health are negatively correlated. This holds despite of race. 

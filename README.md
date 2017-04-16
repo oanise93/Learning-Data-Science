@@ -8,3 +8,4 @@ Statistics with R (coursera)
 
 ## Books
 - Python Data Science Handbook
+- Hands-On Machine Learning with Scikit-Learn and TensorFlow

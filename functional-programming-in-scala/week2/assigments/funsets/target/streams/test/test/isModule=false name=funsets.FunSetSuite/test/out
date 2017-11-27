@@ -1,0 +1,11 @@
+[0m[[0minfo[0m] [0m[32mFunSetSuite:[0m[0m
+[0m[[0minfo[0m] [0m[32m- contains is implemented[0m[0m
+[0m[[0minfo[0m] [0m[32m- singletonSet(1) contains 1[0m[0m
+[0m[[0minfo[0m] [0m[32m- union contains all elements of each set[0m[0m
+[0m[[0minfo[0m] [0m[32m- intersection contains appropriate elements of each set[0m[0m
+[0m[[0minfo[0m] [0m[32m- diff contains only appropriate elements of each set[0m[0m
+[0m[[0minfo[0m] [0m[32m- diff contains only appropriate elements[0m[0m
+[0m[[0minfo[0m] [0m[31m- exists *** FAILED ***[0m[0m
+[0m[[0minfo[0m] [0m[31m  FunSets.exists($anon.this.boundedSet, ((x: Int) => scala.math.`package`.abs(x).<=(1000))) was true there doesn't exist a number with an absolute value less than or equal to 1000 (FunSetSuite.scala:159)[0m[0m
+[0m[[0minfo[0m] [0m[31m- map *** FAILED ***[0m[0m
+[0m[[0minfo[0m] [0m[31m  FunSets.contains($anon.this.s, -1000) was true (FunSetSuite.scala:169)[0m[0m
